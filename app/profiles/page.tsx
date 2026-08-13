@@ -16,6 +16,7 @@ import {
   type ProfileSummary,
 } from "@/lib/api";
 import { PROFILE_COLORS, PROFILE_EMOJI } from "@/lib/constants";
+import { convertHeicIfNeeded } from "@/lib/heic";
 
 export default function ProfilesPage() {
   return (
@@ -326,13 +327,14 @@ function ProfileFormModal({
     return () => URL.revokeObjectURL(url);
   }, [photoFile]);
 
-  function handleFilePicked(raw: File | undefined | null) {
+  async function handleFilePicked(raw: File | undefined | null) {
     if (!raw) return;
-    if (!raw.type.startsWith("image/")) {
+    const file = await convertHeicIfNeeded(raw);
+    if (!file.type.startsWith("image/")) {
       toast("That file isn't an image", "error");
       return;
     }
-    setCropping(raw);
+    setCropping(file);
   }
 
   function clearPhoto() {

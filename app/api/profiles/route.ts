@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { activeProfileId, type ClientProfileSummary } from "@/lib/profile";
-import { savePhoto } from "@/lib/upload";
+import { deletePhoto, savePhoto } from "@/lib/upload";
 
 export const dynamic = "force-dynamic";
 
@@ -94,18 +94,36 @@ export async function POST(req: NextRequest) {
     photoPath = saved.path;
   }
 
-  const profile = await prisma.profile.create({
-    data: {
-      name,
-      color: String(body.color || "#c9a25a"),
-      emoji: body.emoji ? String(body.emoji).slice(0, 8) : null,
-      photoPath,
-    },
-    include: {
-      _count: { select: { items: true } },
-      style: { select: { id: true } },
-    },
-  });
+  try {
+    const profile = await prisma.profile.create({
+      data: {
+        name,
+        color: String(body.color || "#c9a25a"),
+        emoji: body.emoji ? String(body.emoji).slice(0, 8) : null,
+        photoPath,
+      },
+      include: {
+        _count: { select: { items: true } },
+        style: { select: { id: true } },
+      },
+    });
 
-  return NextResponse.json({ profile: serialize(profile) }, { status: 201 });
+    return NextResponse.json({ profile: serialize(profile) }, { status: 201 });
+  } catch (err) {
+    // Two devices creating the same name at once race past the findFirst
+    // check above — the DB's unique constraint is the real backstop.
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      err.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: `There's already a profile called ${name}` },
+        { status: 409 }
+      );
+    }
+    if (photoPath) await deletePhoto(photoPath);
+    throw err;
+  }
 }

@@ -7,6 +7,7 @@ import { useToast } from "./Toast";
 import { ImageIcon, TrashIcon } from "./Icons";
 import { ColorDot } from "./ui";
 import { compressImage } from "@/lib/image";
+import { convertHeicIfNeeded } from "@/lib/heic";
 import {
   classifyItemPhoto,
   createItem,
@@ -112,11 +113,12 @@ export default function ItemForm({
 
   async function handleFile(raw: File | undefined | null) {
     if (!raw) return;
-    if (!raw.type.startsWith("image/")) {
+    const picked = await convertHeicIfNeeded(raw);
+    if (!picked.type.startsWith("image/")) {
       toast("That file isn't an image", "error");
       return;
     }
-    const compressed = await compressImage(raw);
+    const compressed = await compressImage(picked);
     setFile(compressed);
 
     // Auto-fill only for a brand-new item. Editing an existing one means
