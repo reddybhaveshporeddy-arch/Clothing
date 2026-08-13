@@ -3,7 +3,8 @@
 Upload photos of the clothes you actually own, get outfit suggestions built from
 them, and track what you wore on which day.
 
-Single user, no login. Runs locally with SQLite.
+Single user, no login. Runs locally or deployed to Vercel — both point at the
+same Postgres database.
 
 ## Setup
 
@@ -11,8 +12,12 @@ Single user, no login. Runs locally with SQLite.
 npm install
 ```
 
+Create a Postgres database (Vercel Postgres, Neon, Supabase — any of them
+work) and put its connection string in `.env` as `DATABASE_URL` (see
+[Environment variables](#environment-variables)), then:
+
 ```bash
-npx prisma migrate dev --name init
+npx prisma db push
 ```
 
 ```bash
@@ -32,7 +37,7 @@ npm run seed
 
 This adds 16 demo items and a style profile, using flat-color placeholder
 images. It does nothing if your wardrobe already has items — to start over,
-delete `prisma/dev.db` and re-run the migration.
+clear the tables (`npx prisma db push --force-reset`) and re-seed.
 
 ## Profiles — sharing one instance
 
@@ -113,10 +118,11 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-| Variable            | Required | Purpose                                                        |
-| ------------------- | -------- | -------------------------------------------------------------- |
-| `DATABASE_URL`      | yes      | SQLite file. Defaults to `file:./dev.db`.                       |
-| `ANTHROPIC_API_KEY` | no       | AI-written style notes on outfits (`claude-haiku-4-5-20251001`) |
+| Variable                | Required | Purpose                                                          |
+| ----------------------- | -------- | ----------------------------------------------------------------- |
+| `DATABASE_URL`          | yes      | Postgres connection string.                                       |
+| `BLOB_READ_WRITE_TOKEN` | deployed only | Vercel Blob token for uploaded photos. Unset locally — local dev writes straight to `public/uploads` instead. |
+| `ANTHROPIC_API_KEY`     | no       | AI-written style notes and photo classification (`claude-haiku-4-5-20251001`) |
 
 **Without an API key the app works fully** — style notes come from a local
 rule-based writer instead. Every Claude call also falls back to that writer on
@@ -158,8 +164,10 @@ brown, beige, olive — not just greyscale.
 
 ## Notes on behavior
 
-- **Photos** are compressed in the browser (max 1200px, JPEG) before upload and
-  stored in `public/uploads/`. JPEG, PNG, WebP and GIF only, 8MB limit.
+- **Photos** are compressed in the browser (max 1200px, JPEG) before upload.
+  Stored in `public/uploads/` locally, or Vercel Blob when deployed. JPEG,
+  PNG, WebP and GIF only, 8MB limit — HEIC/HEIF (the iPhone default) is
+  converted to JPEG client-side before that check runs.
 - **Logging a day replaces it.** One outfit per day; re-logging overwrites.
 - **Wear counts are recomputed from the log**, not incremented, so editing or
   clearing a day keeps `timesWorn` and `lastWornDate` honest.
@@ -209,14 +217,23 @@ GET    /api/today               today's best outfit (lat, lon for weather)
 
 ## Deploying to Vercel
 
-The app runs as-is locally. Two things need changing for Vercel, because its
-filesystem is ephemeral and read-only at runtime:
+1. Create a Postgres database (Vercel Storage tab → Create Database, or
+   Neon/Supabase) and connect it to the project — this sets `DATABASE_URL`
+   automatically if created through Vercel's dashboard.
+2. Create a Blob store (Vercel Storage tab → Create → Blob) and connect it —
+   this sets `BLOB_READ_WRITE_TOKEN` automatically.
+3. Add `ANTHROPIC_API_KEY` under Project Settings → Environment Variables, if
+   you want AI features live.
+4. Push to the connected GitHub repo, or redeploy from the dashboard. The
+   build script runs `prisma db push` before `next build`, so the schema
+   syncs to whatever Postgres database is connected — no manual migration
+   step needed.
 
-1. **Images** — swap `lib/upload.ts` for a blob store (e.g. Vercel Blob or S3).
-2. **Database** — SQLite won't persist. Point `DATABASE_URL` at Postgres and
-   change the Prisma datasource `provider` to `postgresql`.
+Local dev and the deployed app can point at the same Postgres database (put
+the same `DATABASE_URL` in your local `.env`), or you can use a separate one
+for local experimentation — either works.
 
 ## Stack
 
-Next.js 14 (App Router) · TypeScript · Tailwind CSS · Prisma + SQLite ·
-Anthropic SDK (optional)
+Next.js 14 (App Router) · TypeScript · Tailwind CSS · Prisma + Postgres ·
+Vercel Blob (deployed) · Anthropic SDK (optional)

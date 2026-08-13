@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
+import { del, put } from "@vercel/blob";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -11,7 +12,17 @@ const ALLOWED = new Map([
   ["image/gif", ".gif"],
 ]);
 
-/** Persist an uploaded image and return its public path. */
+/**
+ * Deployed environments (Vercel) have a read-only filesystem, so uploads go
+ * to Blob storage there instead. Local dev has no Blob token configured and
+ * keeps writing straight to /public/uploads — simpler to work with and
+ * nothing to provision just to run the app on a laptop.
+ */
+function blobConfigured(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+/** Persist an uploaded image and return its public path/URL. */
 export async function savePhoto(
   file: File
 ): Promise<{ path: string } | { error: string }> {
@@ -22,8 +33,18 @@ export async function savePhoto(
   if (!ext) {
     return { error: "Only JPEG, PNG, WebP or GIF images are supported" };
   }
-  await mkdir(UPLOAD_DIR, { recursive: true });
+
   const filename = `${randomUUID()}${ext}`;
+
+  if (blobConfigured()) {
+    const blob = await put(filename, file, {
+      access: "public",
+      addRandomSuffix: false,
+    });
+    return { path: blob.url };
+  }
+
+  await mkdir(UPLOAD_DIR, { recursive: true });
   await writeFile(
     path.join(UPLOAD_DIR, filename),
     Buffer.from(await file.arrayBuffer())
@@ -32,18 +53,30 @@ export async function savePhoto(
 }
 
 /**
- * Remove an uploaded file. Only touches paths under /public/uploads, and never
- * throws — a missing file shouldn't fail the delete of its item.
+ * Remove an uploaded file. Never throws — a missing file shouldn't fail the
+ * delete of its item.
  */
 export async function deletePhoto(photoPath: string | null | undefined) {
-  if (!photoPath || !photoPath.startsWith("/uploads/")) return;
-  const filename = path.basename(photoPath);
-  const target = path.join(UPLOAD_DIR, filename);
-  if (!target.startsWith(UPLOAD_DIR)) return;
-  try {
-    await unlink(target);
-  } catch {
-    /* already gone */
+  if (!photoPath) return;
+
+  if (photoPath.startsWith("/uploads/")) {
+    const filename = path.basename(photoPath);
+    const target = path.join(UPLOAD_DIR, filename);
+    if (!target.startsWith(UPLOAD_DIR)) return;
+    try {
+      await unlink(target);
+    } catch {
+      /* already gone */
+    }
+    return;
+  }
+
+  if (blobConfigured() && photoPath.includes("blob.vercel-storage.com")) {
+    try {
+      await del(photoPath);
+    } catch {
+      /* already gone */
+    }
   }
 }
 

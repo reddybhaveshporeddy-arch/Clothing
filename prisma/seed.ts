@@ -112,7 +112,7 @@ async function main() {
   const existing = await prisma.clothingItem.count();
   if (existing > 0) {
     console.log(
-      `Wardrobe already has ${existing} items — leaving it alone. Delete prisma/dev.db to start over.`
+      `Wardrobe already has ${existing} items — leaving it alone.`
     );
     return;
   }
