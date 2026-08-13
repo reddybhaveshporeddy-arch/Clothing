@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// One person using this instance. Profiles separate wardrobes from each
+/// other — they are not accounts and carry no password. Anyone who can reach
+/// the app can pick any profile.
+model Profile {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String   @default("#ff7a2f")
+  emoji     String?
+  /// Optional avatar photo — takes over from the color/emoji tile when set.
+  photoPath String?
+  createdAt DateTime @default(now())
+
+  style    StyleProfile?
+  items    ClothingItem[]
+  outfits  Outfit[]
+  wearLogs WearLog[]
+}
+
+model StyleProfile {
+  id              Int      @id @default(autoincrement())
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId       Int      @unique
+  styleVibe       String // "streetwear" | "casual" | "preppy" | "mixed"
+  preferredColors String // JSON array
+  fit             String // "baggy" | "fitted" | "mixed"
+  occasion        String // "school" | "hangout" | "both"
+  avoidColors     String // JSON array
+  mustInclude     String? // JSON array of item types/ids
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+}
+
+model ClothingItem {
+  id             Int       @id @default(autoincrement())
+  profile        Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId      Int
+  name           String
+  category       String // "top" | "bottom" | "outerwear" | "shoes" | "accessory"
+  type           String // "hoodie" | "baggy-jeans" | etc
+  primaryColor   String
+  secondaryColor String?
+  styleTags      String // JSON array
+  season         String // "all" | "summer" | "fall-winter" | "spring"
+  notes          String?
+  photoPath      String
+  timesWorn      Int       @default(0)
+  lastWornDate   DateTime?
+  /// When this item was last washed — wears since this date decide when it's
+  /// due again. Null means "never marked," so it's judged on wears all-time.
+  lastWashedDate DateTime?
+  createdAt      DateTime  @default(now())
+  outfitItems    OutfitItem[]
+  wearLogs       WearLog[]
+
+  @@index([profileId])
+}
+
+model Outfit {
+  id           Int       @id @default(autoincrement())
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId    Int
+  name         String
+  score        Float
+  styleNote    String?
+  tags         String    @default("[]") // JSON array
+  timesWorn    Int       @default(0)
+  lastWornDate DateTime?
+  disliked     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  items        OutfitItem[]
+  wearLogs     WearLog[]
+
+  @@index([profileId])
+}
+
+model OutfitItem {
+  id       Int          @id @default(autoincrement())
+  outfit   Outfit       @relation(fields: [outfitId], references: [id], onDelete: Cascade)
+  outfitId Int
+  item     ClothingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId   Int
+  slot     String // "top" | "bottom" | "outerwear" | "shoes" | "accessory"
+}
+
+model WearLog {
+  id        Int           @id @default(autoincrement())
+  profile   Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId Int
+  date      DateTime
+  outfit    Outfit?       @relation(fields: [outfitId], references: [id], onDelete: SetNull)
+  outfitId  Int?
+  item      ClothingItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId    Int?
+
+  @@index([profileId, date])
+}

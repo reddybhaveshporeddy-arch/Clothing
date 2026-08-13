@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #120d16;
+  --surface: #1e1725;
+  --surface-2: #261c2f;
+  --border: #2e2237;
+  --text: #f3ece2;
+  --muted: #a99bb5;
+  --accent: #c9a25a;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  min-height: 100dvh;
+  /* Room for the fixed bottom nav on phones. */
+  padding-bottom: env(safe-area-inset-bottom);
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/*
+ * Atmosphere: a soft warm glow low in the frame plus a whisper of film
+ * grain — the difference between "dark theme" and "a room lit by one lamp".
+ * Both are fixed, behind everything, and low enough opacity to read as
+ * texture rather than decoration.
+ */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::before {
+  background: radial-gradient(
+      ellipse 70% 45% at 18% -8%,
+      rgba(201, 162, 90, 0.13),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 88% 108%,
+      rgba(201, 138, 156, 0.1),
+      transparent 65%
+    ),
+    /* A faint vignette — edges recede a shade darker, so the frame itself
+       feels like it's holding the light rather than just displaying it. */
+      radial-gradient(
+        ellipse 130% 90% at 50% 45%,
+        transparent 55%,
+        rgba(4, 2, 6, 0.4) 100%
+      );
+}
+
+body::after {
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Thin, warm scrollbars so panels don't get a bright gutter. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3d2e48;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4d3a5a;
+  background-clip: content-box;
+}
+
+@layer components {
+  .card {
+    @apply relative overflow-hidden rounded-2xl border border-ink-700
+           bg-gradient-to-b from-[#221a29] to-ink-800 shadow-vellum;
+  }
+
+  /* A hairline of brass along the top edge — the difference between a card
+     and a piece set on velvet under a light. */
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(224, 193, 132, 0.4) 50%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* A thin brass rule for editorial dividers — under headings, between
+     sections — used sparingly as the system's signature mark. */
+  .divider-gold {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(224, 193, 132, 0.55),
+      transparent
+    );
+  }
+
+  .btn {
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl px-4 py-2.5 text-sm font-medium
+           transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-accent-soft to-accent text-ink-900 shadow-glow
+           hover:from-accent hover:to-accent-dim hover:shadow-[0_0_0_1px_rgba(201,162,90,0.3),0_24px_52px_-16px_rgba(201,162,90,0.5)];
+  }
+
+  /* A glassy highlight across the top third — the sheen a lacquered surface
+     catches, not a hover trick. Present at rest, not just on interaction. */
+  .btn-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.32),
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  .btn-ghost {
+    @apply btn border border-ink-600 bg-ink-750 text-white hover:border-accent/40 hover:bg-ink-700;
+  }
+
+  .btn-subtle {
+    @apply btn text-[#b3a5bd] hover:bg-ink-750 hover:text-white;
+  }
+
+  .btn-danger {
+    @apply btn border border-rose-soft/30 bg-rose/10 text-rose-soft hover:bg-rose/20;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-ink-600 bg-ink-850 px-3.5 py-2.5 text-sm text-white
+           placeholder:text-[#83718e] outline-none transition
+           focus:border-accent/70 focus:ring-2 focus:ring-accent/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-[#a99bb5];
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-ink-600 bg-ink-750 px-3 py-1.5
+           text-xs font-medium text-[#cabfd2] transition hover:border-ink-500 hover:text-white;
+  }
+
+  .chip-active {
+    @apply border-accent/70 bg-accent/15 text-accent-soft;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-md bg-ink-700 px-2 py-0.5 text-[10px] font-semibold
+           uppercase tracking-wide text-[#b8adc0];
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-ink-750;
+  }
+  .skeleton::after {
+    @apply absolute inset-0 animate-shimmer;
+    content: "";
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(224, 193, 132, 0.06),
+      transparent
+    );
+  }
+}
+
+/* Respect the OS setting for users who get motion sick. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
