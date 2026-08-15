@@ -176,6 +176,27 @@ export async function classifyItemPhoto(
   return data.available ? data.suggestion : null;
 }
 
+export type ScanMatch = {
+  score: number;
+  items: { slot: string; item: ClientItem }[];
+};
+
+export type ScanResult = {
+  item: ClassifiedItem;
+  bestScore: number | null;
+  matches: ScanMatch[];
+  verdict: string;
+  verdictSource: "claude" | "local";
+};
+
+/** Scan an item seen out in the world — nothing is saved, just scored. */
+export async function scanItem(photo: File): Promise<ScanResult> {
+  const fd = new FormData();
+  fd.set("photo", photo);
+  const res = await fetch("/api/scan", { method: "POST", body: fd });
+  return json<ScanResult>(res);
+}
+
 export async function createItem(form: FormData) {
   const res = await fetch("/api/clothing", { method: "POST", body: form });
   return (await json<{ item: ClientItem }>(res)).item;

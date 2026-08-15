@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/", label: "Home" },
   { href: "/wardrobe", label: "Wardrobe" },
   { href: "/outfits", label: "Outfits" },
+  { href: "/scan", label: "Scan" },
   { href: "/calendar", label: "Calendar" },
   { href: "/saved-outfits", label: "Saved" },
 ];

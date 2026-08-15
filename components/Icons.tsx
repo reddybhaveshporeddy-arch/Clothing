@@ -144,6 +144,13 @@ export const TagIcon = (p: P) => (
   </svg>
 );
 
+export const ScanIcon = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 1-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2" />
+    <path d="M4 12h16" opacity=".6" />
+  </svg>
+);
+
 export const ExternalLinkIcon = (p: P) => (
   <svg {...base} {...p}>
     <path d="M9 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />

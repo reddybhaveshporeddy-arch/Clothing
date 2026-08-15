@@ -470,12 +470,90 @@ export function generateOutfits(
   return chosen.map((c, i) => ({ ...c, name: nameOutfit(c.items.map((x) => x.item), i) }));
 }
 
+/** Sentinel id for a not-yet-owned item being test-fit against the wardrobe. */
+export const PHANTOM_ITEM_ID = -1;
+
+/**
+ * Score a scanned (not-yet-owned) item against the real wardrobe: find the
+ * best outfits it could slot into, the same way outfit generation works, but
+ * with this one item pinned into its category slot instead of drawn from the
+ * closet. Every returned outfit includes the phantom item.
+ */
+export function matchAgainstWardrobe(
+  phantom: EngineItem,
+  wardrobe: EngineItem[],
+  profile: EngineProfile,
+  now = new Date()
+): ScoredOutfit[] {
+  const season = currentSeason(now);
+  const usable = wardrobe.filter(
+    (i) => seasonScoreForItem(i.season, season) > 0
+  );
+  const byCategory = (cat: string) => usable.filter((i) => i.category === cat);
+
+  const tops =
+    phantom.category === "top" ? [phantom] : capPool(byCategory("top"), profile, 5);
+  const bottoms =
+    phantom.category === "bottom"
+      ? [phantom]
+      : capPool(byCategory("bottom"), profile, 5);
+  const outerwear =
+    phantom.category === "outerwear"
+      ? [phantom]
+      : capPool(byCategory("outerwear"), profile, 3);
+  const shoes =
+    phantom.category === "shoes" ? [phantom] : capPool(byCategory("shoes"), profile, 3);
+
+  if (tops.length === 0 || bottoms.length === 0) return [];
+
+  const outerChoices: (EngineItem | null)[] =
+    phantom.category === "outerwear" ? [phantom] : [null, ...outerwear];
+  const shoeChoices: (EngineItem | null)[] =
+    phantom.category === "shoes" ? [phantom] : shoes.length ? shoes : [null];
+
+  const candidates: ScoredOutfit[] = [];
+  for (const top of tops) {
+    for (const bottom of bottoms) {
+      for (const outer of outerChoices) {
+        for (const shoe of shoeChoices) {
+          const entries: { item: EngineItem; slot: string }[] = [
+            { item: top, slot: "top" },
+            { item: bottom, slot: "bottom" },
+          ];
+          if (outer) entries.push({ item: outer, slot: "outerwear" });
+          if (shoe) entries.push({ item: shoe, slot: "shoes" });
+          if (phantom.category === "accessory") {
+            entries.push({ item: phantom, slot: "accessory" });
+          }
+          if (!entries.some((e) => e.item.id === phantom.id)) continue;
+
+          const breakdown = scoreOutfit(entries.map((e) => e.item), profile, now);
+          candidates.push({ name: "", score: breakdown.total, breakdown, items: entries });
+        }
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  const seen = new Set<string>();
+  const top: ScoredOutfit[] = [];
+  for (const c of candidates) {
+    const sig = outfitSignature(c.items);
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    top.push(c);
+    if (top.length >= 3) break;
+  }
+  return top;
+}
+
 /**
  * Cheap per-item pre-ranking so the cross-product stays small: favour items
  * that match the profile and haven't been worn in the last few days, with a
  * little jitter so repeated generations aren't identical.
  */
-function capPool(
+export function capPool(
   items: EngineItem[],
   profile: EngineProfile,
   limit: number

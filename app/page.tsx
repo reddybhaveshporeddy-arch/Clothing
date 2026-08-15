@@ -18,6 +18,7 @@ import {
   FlameIcon,
   HangerIcon,
   PlusIcon,
+  ScanIcon,
   SparkIcon,
   SunIcon,
 } from "@/components/Icons";
@@ -192,6 +193,10 @@ export default function HomePage() {
                 </button>
                 <Link href="/outfits" className="btn-ghost">
                   Browse more options
+                </Link>
+                <Link href="/scan" className="btn-ghost">
+                  <ScanIcon className="h-4 w-4" />
+                  Scan a find
                 </Link>
               </>
             )}

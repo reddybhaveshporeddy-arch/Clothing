@@ -88,6 +88,81 @@ In 1-2 casual, friendly sentences explain why this outfit works and give one sty
   }
 }
 
+/**
+ * Local fallback verdict when there's no API key — plain, honest, and based
+ * only on the numbers the matching engine already computed.
+ */
+function localScanVerdict(bestScore: number | null): string {
+  if (bestScore == null) {
+    return "Couldn't find a strong pairing in your current wardrobe — that's not necessarily a dealbreaker, just something to weigh yourself.";
+  }
+  if (bestScore >= 80) {
+    return "Strong match — this pairs cleanly with pieces you already own.";
+  }
+  if (bestScore >= 60) {
+    return "Decent match — it'll work with a few things you have, though nothing's a perfect pairing.";
+  }
+  return "Weak match — it doesn't pair well with what's currently in your closet.";
+}
+
+/**
+ * Ask Claude whether a scanned (not-yet-owned) item is worth buying, given
+ * the best pairings the matching engine found in the real wardrobe. Falls
+ * back to a plain score-based verdict on any failure.
+ */
+export async function scanVerdict(
+  phantom: EngineItem,
+  bestMatches: { items: EngineItem[]; score: number }[],
+  profile: EngineProfile
+): Promise<{ text: string; source: "claude" | "local" }> {
+  const bestScore = bestMatches[0]?.score ?? null;
+  const anthropic = getClient();
+  if (!anthropic) {
+    return { text: localScanVerdict(bestScore), source: "local" };
+  }
+
+  const vibe = profile?.styleVibe ?? "casual";
+  const fit = profile?.fit ?? "mixed";
+  const pairingsBlock = bestMatches.length
+    ? bestMatches
+        .map(
+          (m, i) =>
+            `${i + 1}. (score ${Math.round(m.score)}/100) ${describe(
+              m.items.filter((it) => it !== phantom)
+            )}`
+        )
+        .join("\n")
+    : "No workable pairing was found in their current wardrobe.";
+
+  const prompt = `The user is an 8th grade male who prefers a ${vibe} style and ${fit} fits. They're standing in a store looking at this item:
+- ${phantom.category}: ${phantom.name} — ${phantom.primaryColor}${
+    phantom.secondaryColor ? ` / ${phantom.secondaryColor}` : ""
+  } ${phantom.type}${phantom.styleTags?.length ? ` [${phantom.styleTags.join(", ")}]` : ""}
+
+Here's how it would pair with pieces they already own, best first:
+${pairingsBlock}
+
+In 1-2 casual, honest sentences, tell them if it's worth getting. Talk directly to them, no greeting, no bullet points, no emoji. Keep it under 45 words. If the pairings are weak, say so plainly rather than being falsely encouraging.`;
+
+  try {
+    const res = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 200,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const text = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join(" ")
+      .trim();
+    if (!text) throw new Error("empty response");
+    return { text, source: "claude" };
+  } catch (err) {
+    console.error("[claude] scan verdict failed, using local fallback:", err);
+    return { text: localScanVerdict(bestScore), source: "local" };
+  }
+}
+
 export type ClassifiedItem = {
   name: string;
   category: Category;
